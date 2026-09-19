@@ -1,0 +1,33 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: sentinel-aml
+  datasource:
+    url: jdbc:postgresql://localhost:5432/${DB_NAME:sentinel}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:postgres}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+
+sentinel:
+  high-risk-countries:
+    - IR
+    - KP
+    - SY
+    - CU
+    - RU
+  rules:
+    large-transaction:
+      threshold: 10000
+    structuring:
+      min-amount: 9000
+      max-amount: 9999
+      min-count: 3
+      window-hours: 24

@@ -1,0 +1,201 @@
+{
+  "info": {
+    "name": "Sentinel AML",
+    "description": "Ingestion -> detection -> alert -> case disposition flow for the Sentinel AML hackathon MVP.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080", "type": "string" },
+    { "key": "alertId", "value": "1", "type": "string" },
+    { "key": "dispositionedAlertId", "value": "2", "type": "string" },
+    { "key": "mergeTargetAlertId", "value": "3", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Alerts",
+      "item": [
+        {
+          "name": "List alerts (sorted by risk score desc)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/alerts",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "alerts"]
+            },
+            "description": "Analyst queue. Expect 3 alerts on a fresh seed: HIGH_RISK_JURISDICTION, STRUCTURING, LARGE_TRANSACTION."
+          }
+        },
+        {
+          "name": "Get alert detail",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/alerts/{{alertId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "alerts", "{{alertId}}"]
+            },
+            "description": "Full detail: triggeredRuleType, riskScore, explanation, evidenceTransactionIds."
+          }
+        },
+        {
+          "name": "Disposition an alert",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"dispositionStatus\": \"CLEARED_FALSE_POSITIVE\",\n  \"dispositionReason\": \"KYC confirmed legitimate source of funds.\",\n  \"analystId\": \"analyst.rao\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/alerts/{{dispositionedAlertId}}/disposition",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "alerts", "{{dispositionedAlertId}}", "disposition"]
+            },
+            "description": "dispositionStatus: CLEARED_FALSE_POSITIVE | ESCALATED_TO_FIU | CONFIRMED_SUSPICIOUS. Alert is never deleted; status flips to DISPOSITIONED and a Case row is written."
+          }
+        },
+        {
+          "name": "Confirm alert still exists after disposition",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/alerts/{{dispositionedAlertId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "alerts", "{{dispositionedAlertId}}"]
+            },
+            "description": "status should now be DISPOSITIONED, not gone."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Ingestion",
+      "item": [
+        {
+          "name": "Ingest single transaction (streaming-style, dedup merge)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "[\n  {\n    \"accountId\": \"ACC_000003\",\n    \"amount\": 500.00,\n    \"currencyCode\": \"INR\",\n    \"counterpartyCountryCode\": \"IR\",\n    \"channel\": \"WIRE_TRANSFER\",\n    \"transactionTimestamp\": \"2026-09-19T08:00:00Z\"\n  }\n]"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/ingest/transactions",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "ingest", "transactions"]
+            },
+            "description": "One IR transaction on CUST_00002's account. Should merge into the existing HIGH_RISK_JURISDICTION alert instead of creating a duplicate."
+          }
+        },
+        {
+          "name": "Confirm evidence merged (no duplicate alert)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/alerts/{{mergeTargetAlertId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "alerts", "{{mergeTargetAlertId}}"]
+            },
+            "description": "evidenceTransactionIds should now contain the new streamed transaction alongside the original seed evidence."
+          }
+        },
+        {
+          "name": "Ingest batch (new structuring pattern)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "[\n  {\"accountId\":\"ACC_000001\",\"amount\":9100.00,\"currencyCode\":\"INR\",\"counterpartyCountryCode\":\"IN\",\"channel\":\"ONLINE\",\"transactionTimestamp\":\"2026-09-20T09:00:00Z\"},\n  {\"accountId\":\"ACC_000001\",\"amount\":9400.00,\"currencyCode\":\"INR\",\"counterpartyCountryCode\":\"IN\",\"channel\":\"ONLINE\",\"transactionTimestamp\":\"2026-09-20T15:00:00Z\"},\n  {\"accountId\":\"ACC_000001\",\"amount\":9900.00,\"currencyCode\":\"INR\",\"counterpartyCountryCode\":\"IN\",\"channel\":\"ONLINE\",\"transactionTimestamp\":\"2026-09-21T06:00:00Z\"}\n]"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/ingest/transactions",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "ingest", "transactions"]
+            },
+            "description": "3 transactions in the $9,000-$9,999 structuring band within 24h on ACC_000001. Should create a brand new STRUCTURING alert (4th alert overall)."
+          }
+        },
+        {
+          "name": "Confirm new alert count",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/alerts",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "alerts"]
+            },
+            "description": "Expect 4 alerts total after the batch ingest above."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Error cases",
+      "item": [
+        {
+          "name": "Get unknown alert -> 404",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/alerts/999",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "alerts", "999"]
+            }
+          }
+        },
+        {
+          "name": "Disposition with missing required field -> 400",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"dispositionStatus\": \"CLEARED_FALSE_POSITIVE\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/alerts/{{alertId}}/disposition",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "alerts", "{{alertId}}", "disposition"]
+            },
+            "description": "Missing dispositionReason/analystId -> 400 with a consistent ApiErrorResponse body."
+          }
+        },
+        {
+          "name": "Ingest transaction for unknown account -> 404, nothing persisted",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "[\n  {\n    \"accountId\": \"ACC_DOES_NOT_EXIST\",\n    \"amount\": 100,\n    \"currencyCode\": \"INR\",\n    \"counterpartyCountryCode\": \"IN\",\n    \"channel\": \"ONLINE\",\n    \"transactionTimestamp\": \"2026-09-19T08:00:00Z\"\n  }\n]"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/ingest/transactions",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "ingest", "transactions"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
