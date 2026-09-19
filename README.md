@@ -5,6 +5,12 @@ configurable rule-based detection engine, and surfaces risk-scored, explainable 
 an analyst queue with a disposition (case) workflow. Built to a 60-minute time box — see
 **Scope & what was cut** below for what a production build would add on top of this.
 
+## Database schema
+
+Flyway-managed (`src/main/resources/db/migration/V1__init_schema.sql`); Hibernate runs in
+`validate` mode, not `update` — the migration script is the single source of truth for schema.
+See [`docs/ERD.md`](docs/ERD.md) for the entity-relationship diagram.
+
 ## Architecture
 
 Clean layered architecture, one direction of dependency (controller → service → repository):
@@ -115,9 +121,11 @@ curl -s -X POST http://localhost:8080/api/v1/ingest/transactions \
 mvn test
 ```
 
-`LargeTransactionRuleTest` and `StructuringRuleTest` cover the trigger case and the
-just-under-the-band non-trigger case (e.g. three $8,999 transactions must **not** trigger
-structuring, since the band is $9,000–$9,999) for the two rules richest in edge cases.
+All three detection rules have unit test coverage: `LargeTransactionRuleTest`,
+`StructuringRuleTest`, and `HighRiskJurisdictionRuleTest`. Each covers the trigger case and at
+least one meaningful non-trigger edge case — e.g. three $8,999 transactions must **not** trigger
+structuring since the band is $9,000–$9,999, and a non-sanctioned-country transaction must not
+trigger the jurisdiction rule regardless of amount.
 
 ## Scope & what was deliberately cut
 
@@ -141,9 +149,8 @@ follow-up pass would add:
 - **Multi-currency FX normalization** — thresholds are applied to each transaction's native
   amount directly rather than a normalized base currency; the seed data is INR-only so this
   doesn't distort the demo, but it's a real gap versus business rule #9.
-- **Flyway/migration scripts** — `ddl-auto: update` is used instead for speed.
-- **SAR draft generation, frontend dashboard** — not built. (OpenAPI/Swagger documentation
-  *is* included — see the section above.)
+- **SAR draft generation, frontend dashboard** — not built. (Flyway migrations, an ERD, and
+  OpenAPI/Swagger documentation *are* included — see the sections above.)
 
 ## Known limitation
 
