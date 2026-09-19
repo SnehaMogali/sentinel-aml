@@ -79,12 +79,13 @@ On first startup, `SeedDataLoader` loads `src/main/resources/data/{customers,acc
 into Postgres (skipping any malformed row with a logged error rather than failing the whole load)
 and immediately runs one detection pass, so alerts already exist the moment the app is up.
 
-> **Note on seed data:** the original `accounts.csv` only had two accounts, both for `CUST_00001`.
-> One synthetic account (`ACC_000003`, for `CUST_00002`) was appended in this project's copy of
-> the CSV so the seed data could demonstrate the high-risk-jurisdiction typology on a second
-> customer. `transactions.csv` is newly authored (none existed) with ~11 rows deliberately
-> engineered to trip all three typologies plus enough normal transactions that the alerts are a
-> visible minority, not "everything gets flagged."
+> **Note on seed data:** `customers.csv` and `accounts.csv` are used exactly as provided (2
+> customers, 2 accounts, both accounts under `CUST_00001`) — nothing added or modified.
+> `transactions.csv` is newly authored (none existed) with 9 rows on those two real accounts,
+> deliberately engineered to trip all three typologies (a $15,000 transaction, a small transfer
+> to a high-risk jurisdiction, and 3 transactions in the $9,000-$9,999 structuring band within
+> 24h) plus enough normal transactions that the alerts are a visible minority, not "everything
+> gets flagged."
 
 ## API documentation (OpenAPI/Swagger)
 
@@ -112,7 +113,7 @@ curl -s -X POST http://localhost:8080/api/v1/alerts/1/disposition \
 #    customer and merges into an existing OPEN alert instead of creating a duplicate
 curl -s -X POST http://localhost:8080/api/v1/ingest/transactions \
   -H "Content-Type: application/json" \
-  -d '[{"accountId":"ACC_000003","amount":500.00,"currencyCode":"INR","counterpartyCountryCode":"IR","channel":"WIRE_TRANSFER","transactionTimestamp":"2026-09-19T08:00:00Z"}]' | jq
+  -d '[{"accountId":"ACC_000001","amount":500.00,"currencyCode":"INR","counterpartyCountryCode":"IR","channel":"WIRE_TRANSFER","transactionTimestamp":"2026-09-19T08:00:00Z"}]' | jq
 ```
 
 ## Tests
