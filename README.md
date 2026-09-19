@@ -11,6 +11,12 @@ Flyway-managed (`src/main/resources/db/migration/V1__init_schema.sql`); Hibernat
 `validate` mode, not `update` — the migration script is the single source of truth for schema.
 See [`docs/ERD.md`](docs/ERD.md) for the entity-relationship diagram.
 
+> **Upgrading an existing local DB:** if your `sentinel` database already has tables from
+> before Flyway was introduced (i.e. from an earlier `ddl-auto: update` run), Flyway will
+> refuse to migrate a non-empty schema with no history table. `baseline-on-migrate: true`
+> is set so this resolves itself automatically — it only applies when the schema is already
+> non-empty, so a fresh/empty database still runs `V1__init_schema.sql` normally.
+
 ## Architecture
 
 Clean layered architecture, one direction of dependency (controller → service → repository):
