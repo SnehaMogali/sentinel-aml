@@ -80,6 +80,14 @@ and immediately runs one detection pass, so alerts already exist the moment the 
 > engineered to trip all three typologies plus enough normal transactions that the alerts are a
 > visible minority, not "everything gets flagged."
 
+## API documentation (OpenAPI/Swagger)
+
+Auto-generated from the controllers/DTOs via `springdoc-openapi` — no hand-written spec to keep
+in sync:
+
+- Swagger UI: http://localhost:8080/swagger-ui/index.html
+- Raw OpenAPI 3 JSON: http://localhost:8080/v3/api-docs
+
 ## Demo walkthrough
 
 ```bash
@@ -134,8 +142,8 @@ follow-up pass would add:
   amount directly rather than a normalized base currency; the seed data is INR-only so this
   doesn't distort the demo, but it's a real gap versus business rule #9.
 - **Flyway/migration scripts** — `ddl-auto: update` is used instead for speed.
-- **Swagger/OpenAPI UI, SAR draft generation, frontend dashboard** — not built; the API is
-  demoed via curl per the walkthrough above.
+- **SAR draft generation, frontend dashboard** — not built. (OpenAPI/Swagger documentation
+  *is* included — see the section above.)
 
 ## Known limitation
 
